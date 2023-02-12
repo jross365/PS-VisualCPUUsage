@@ -20,6 +20,13 @@
 } #Close function
 
 Function Get-CPUUsage {
+    [CmdletBinding()] 
+    param( 
+        [Parameter(Mandatory=$True)][Alias('File')][string]$ArchiveFile,
+        [Parameter(Mandatory=$False)][Alias('TechInfo')][switch]$ShowTechnicalInfo
+        )
+
+begin {        
 
 If ($null -eq $Global:CPUParams){
 
@@ -108,7 +115,9 @@ $ColorHash = @{}
 $ColorHash.Add(100,[pscustomobject]@{"FG"="White";"BG"="Red"})
 
 #endregion 2.
+} #end Begin
 
+process {
 #region 3. Put it all together
 Do {
 
@@ -146,6 +155,8 @@ Start-Sleep -Milliseconds 500
 Until ($null -eq $Cores)
 
 #endregion 3.
+
+} #close Process
 
 } #Close Function
 
