@@ -130,9 +130,18 @@ If (!($Quiet.IsPresent)){
 
 If ($LogFile.Length -gt 0){
 
+    $LogOutput = $true
 
+    $CSVHeader = '"Time",' + '"' + ($Cores.Name -join '","') + '"'   
+
+    If ($IncludeAverage.IsPresent){$CSVHeader = $CSVHeader + ',"Average"'}
+
+    Try {$CSVHeader | Out-File $LogFile -ErrorAction Stop}
+    Catch {throw "Unable to write to logfile"}
 
 } #Close if $LogFile.Length -gt 0
+
+Else {$LogOutput = $false}
 
 } #End Begin
 
@@ -140,10 +149,28 @@ process {
 #region 3. Put it all together
 Do {
 
-try {$Cores = (Get-WmiObject -Query "SELECT Name, PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE NOT Name LIKE '_Total'" -ErrorAction Stop)| Select-Object @{N="Name"; E={[int]($_.Name)}},PercentProcessorTime,@{N="PercentAsString";E={Three-Chars -Value ($_.PercentProcessorTime)}} | Sort-Object Name}
-catch {throw "Unable to execute Get-WmiObject"}
+    try {$Cores = (Get-WmiObject -Query "SELECT Name, PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE NOT Name LIKE '_Total'" -ErrorAction Stop)| Select-Object @{N="Name"; E={[int]($_.Name)}},PercentProcessorTime,@{N="PercentAsString";E={Three-Chars -Value ($_.PercentProcessorTime)}} | Sort-Object Name}
+    catch {throw "Unable to execute Get-WmiObject"}
 
-If (!($Quiet.IsPresent)){
+    If ($LogOutput -eq $true){
+
+        If ($UnixTime.IsPresent){$Time = [System.DateTimeOffset]::Now.ToUnixTimeMilliseconds()}
+        Else {
+        
+            $Now = $Now = [System.DateTimeOffset]::Now
+            $Time = $Now.Month.ToString() + '/' + $Now.Day.ToString() + '/' + $Now.Year.ToString() + ' ' + $Now.TimeOfDay.ToString()
+        
+        }
+        
+        $CSVLine = '"' + "$Time" + '","' + ($Cores.PercentProcessorTime -join '","') + '"'
+
+        If ($IncludeAverage.IsPresent){$CSVLine = $CSVLine + ',"' + "$([int](($Cores.PercentProcessorTime | Measure-Object -Average).Average))" + '"'}
+        
+        $CSVLine | Out-File $LogFile -Append
+
+         }
+
+    If (!($Quiet.IsPresent)){
 
     $ExecutionStrings = New-Object System.Collections.ArrayList
 
@@ -172,6 +199,8 @@ If (!($Quiet.IsPresent)){
     $ExecutionStrings.ForEach({Invoke-Expression $_})
 
 } #Close If !$Quiet.IsPresent
+
+    
 
 Start-Sleep -Milliseconds $PollingIntervalMS
 
