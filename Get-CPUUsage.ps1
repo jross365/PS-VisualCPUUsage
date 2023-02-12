@@ -22,8 +22,11 @@
 Function Get-CPUUsage {
     [CmdletBinding()] 
     param( 
-        [Parameter(Mandatory=$True)][Alias('File')][string]$ArchiveFile,
-        [Parameter(Mandatory=$False)][Alias('TechInfo')][switch]$ShowTechnicalInfo
+        [Parameter(Mandatory=$False)][Alias('Poll')][int]$PollingIntervalMS,
+        [Parameter(ParameterSetName='Logging',Mandatory=$False)][string]$LogFile,
+        [Parameter(ParameterSetName='Logging',Mandatory=$False)][switch]$IncludeAverage,
+        [Parameter(ParameterSetName='Logging',Mandatory=$False)][switch]$UnixTime
+        
         )
 
 begin {        
