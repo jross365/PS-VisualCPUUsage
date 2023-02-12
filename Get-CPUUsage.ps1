@@ -32,11 +32,11 @@ Function Get-CPUUsage {
 
 begin {        
 
-switch ($Quiet.IsPresent){
+If ($null -eq $PollingIntervalMS -or $PollingIntervalMS.Length -eq 0){$PollingIntervalMS = 500}
 
-$true {}
+If ($Quiet.IsPresent -and ($LogFile -eq $null -or $LogFile.Length -eq 0)){throw "PEBKAC error: It doesn't make sense to specify -Quiet and not specify an output logfile"}
 
-$false {
+If (!($Quiet.IsPresent)){
 
     If ($null -eq $Global:CPUParams){
 
@@ -125,8 +125,14 @@ $false {
     $ColorHash.Add(100,[pscustomobject]@{"FG"="White";"BG"="Red"})
     
     #endregion 2.
-    }
+
 }
+
+If ($LogFile.Length -gt 0){
+
+
+
+} #Close if $LogFile.Length -gt 0
 
 } #End Begin
 
@@ -134,35 +140,40 @@ process {
 #region 3. Put it all together
 Do {
 
-$Cores = (Get-WmiObject -Query "SELECT Name, PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE NOT Name LIKE '_Total'") | Select-Object Name,PercentProcessorTime,@{N="PercentAsString";E={Three-Chars -Value ($_.PercentProcessorTime)}}
+try {$Cores = (Get-WmiObject -Query "SELECT Name, PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE NOT Name LIKE '_Total'" -ErrorAction Stop)| Select-Object @{N="Name"; E={[int]($_.Name)}},PercentProcessorTime,@{N="PercentAsString";E={Three-Chars -Value ($_.PercentProcessorTime)}} | Sort-Object Name}
+catch {throw "Unable to execute Get-WmiObject"}
 
-$ExecutionStrings = New-Object System.Collections.ArrayList
+If (!($Quiet.IsPresent)){
 
-$ExecutionTemplate.ForEach({$ExecutionStrings.Add($_)})
+    $ExecutionStrings = New-Object System.Collections.ArrayList
 
-$Cores.ForEach({
- 
- $C = $_
- [int]$CID = $C.Name
+    $ExecutionTemplate.ForEach({$ExecutionStrings.Add($_)})
+    
+    $Cores.ForEach({
+     
+     $C = $_
+     [int]$CID = $C.Name
+    
+     $CoreLine = $CoreRowHash.($CID)
+     $CoreColors = $ColorHash.[int]($C.PercentProcessorTime)
+    
+     $CoreUsedString = 'CC' + "$($CID)"
+     $CoreFGString = 'FG' + "$($CID)"
+     $CoreBGString = 'BG' + "$($CID)"
+    
+     $ExecutionStrings[$CoreLine] = $ExecutionStrings[$CoreLine] -replace "$CoreUsedString","$($C.PercentAsString)"
+     $ExecutionStrings[$CoreLine] = $ExecutionStrings[$CoreLine] -replace "$CoreFGString","$($CoreColors.FG)"
+     $ExecutionStrings[$CoreLine] = $ExecutionStrings[$CoreLine] -replace "$CoreBGString","$($CoreColors.BG)"
+    
+     }) #Close Cores.ForEach
+    
+    Clear-Host
+    
+    $ExecutionStrings.ForEach({Invoke-Expression $_})
 
- $CoreLine = $CoreRowHash.($CID)
- $CoreColors = $ColorHash.[int]($C.PercentProcessorTime)
+} #Close If !$Quiet.IsPresent
 
- $CoreUsedString = 'CC' + "$($CID)"
- $CoreFGString = 'FG' + "$($CID)"
- $CoreBGString = 'BG' + "$($CID)"
-
- $ExecutionStrings[$CoreLine] = $ExecutionStrings[$CoreLine] -replace "$CoreUsedString","$($C.PercentAsString)"
- $ExecutionStrings[$CoreLine] = $ExecutionStrings[$CoreLine] -replace "$CoreFGString","$($CoreColors.FG)"
- $ExecutionStrings[$CoreLine] = $ExecutionStrings[$CoreLine] -replace "$CoreBGString","$($CoreColors.BG)"
-
- }) #Close Cores.ForEach
-
-Clear-Host
-
-$ExecutionStrings.ForEach({Invoke-Expression $_})
-
-Start-Sleep -Milliseconds 500
+Start-Sleep -Milliseconds $PollingIntervalMS
 
 } #Close Do
 Until ($null -eq $Cores)
@@ -170,6 +181,8 @@ Until ($null -eq $Cores)
 #endregion 3.
 
 } #close Process
+
+end {}
 
 } #Close Function
 
