@@ -132,7 +132,10 @@ If ($LogFile.Length -gt 0){
 
     $LogOutput = $true
 
-    $CSVHeader = '"Time",' + '"' + ($Cores.Name -join '","') + '"'   
+    try {$Cores = (Get-WmiObject -Query "SELECT Name, PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE NOT Name LIKE '_Total'" -ErrorAction Stop)| Select-Object @{N="Name"; E={[int]($_.Name)}},PercentProcessorTime,@{N="PercentAsString";E={Three-Chars -Value ($_.PercentProcessorTime)}} | Sort-Object Name}
+    catch {throw "Unable to execute Get-WmiObject"}
+
+    $CSVHeader = '"Time",' + '"Core ' + ($Cores.Name -join '","Core ') + '"'   
 
     If ($IncludeAverage.IsPresent){$CSVHeader = $CSVHeader + ',"Average"'}
 
